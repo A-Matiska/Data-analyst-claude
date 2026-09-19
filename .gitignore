@@ -47,3 +47,4 @@ logs/
 # Google Ads konfigurace (obsahuje tokeny - NIKDY necommitovat!)
 google-ads.yaml
 *.credentials.json
+google-apis.yaml
