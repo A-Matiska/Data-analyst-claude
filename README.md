@@ -116,6 +116,31 @@ python -m src.gads --report keywords --days 30
 > ⚠️ Ceny vrací Google Ads v *micros* (1 000 000 = 1 jednotka měny).
 > Konektor je automaticky převede (`cost_micros` → `cost`).
 
+### Automatické denní stažení (bez nutnosti otevřít dashboard)
+
+GitHub Actions workflow `.github/workflows/gads-daily-sync.yml` stahuje
+každé ráno (~7:17 CEST) všechny 4 reporty (kampaně, klíčová slova, inzeráty,
+denní trend) za posledních 30 dní a uloží je do `data/panopro_auto_*.csv`
+přímo v repozitáři — commitne je jen tehdy, když se data skutečně změnila.
+Dashboard je pak uvidí ve zdroji dat **"Ze složky data/"**, bez nutnosti
+cokoliv ručně stahovat.
+
+Aby to fungovalo, je potřeba v repozitáři nastavit **Settings → Secrets and
+variables → Actions → New repository secret** (stejné hodnoty jako
+v `google-ads.yaml`):
+
+| Secret | Hodnota |
+|--------|---------|
+| `GOOGLE_ADS_DEVELOPER_TOKEN` | developer token |
+| `GOOGLE_ADS_CLIENT_ID` | OAuth2 client_id |
+| `GOOGLE_ADS_CLIENT_SECRET` | OAuth2 client_secret |
+| `GOOGLE_ADS_REFRESH_TOKEN` | OAuth2 refresh_token |
+| `GOOGLE_ADS_LOGIN_CUSTOMER_ID` | ID správcovského (MCC) účtu |
+| `GOOGLE_ADS_CUSTOMER_ID` | ID účtu *panopro* |
+
+Ruční spuštění (bez čekání na ráno): záložka **Actions** → **Google Ads –
+denní stažení dat** → **Run workflow**.
+
 ## 🤖 AI insighty (Claude)
 
 Analyzovaná data umí komentovat přímo Claude — vrátí srozumitelné insighty
