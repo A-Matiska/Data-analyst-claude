@@ -131,13 +131,13 @@ def main():
     creds = flow.credentials
 
     print("\n" + "=" * 60)
-    print("✓ refresh_token vygenerován:")
+    print("[OK] refresh_token vygenerován:")
     print(creds.refresh_token)
     print("=" * 60)
 
     if args.update_yaml:
         update_yaml_refresh_token(args.update_yaml, creds.refresh_token)
-        print(f"✓ Zapsáno do {args.update_yaml}")
+        print(f"[OK] Zapsáno do {args.update_yaml}")
     else:
         print("Vlož ho do google-ads.yaml jako:  refresh_token: <token>")
 
