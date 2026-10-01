@@ -11,6 +11,7 @@
 - AI insighty: `python -m src.ai data/soubor.csv`
 - Google Ads: `python -m src.gads --check` (test připojení) | `python -m src.gads --report keywords --days 30` | `--customer-id … --csv data/out.csv`
 - OAuth token: `python -m src.generate_refresh_token --update-yaml`
+- Denní auto-sync Google Ads: `.github/workflows/gads-daily-sync.yml` (cron, vyžaduje GOOGLE_ADS_* jako GitHub Secrets) — ukládá do `data/panopro_auto_*.csv`, dashboard je najde přes "Ze složky data/"
 - Deploy: push do GitHub (A-Matiska/Data-analyst-claude) → Streamlit Community Cloud auto-redeploy; alternativně Azure App Service (DEPLOY_AZURE.md)
 
 ## Where things live
