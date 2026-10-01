@@ -151,9 +151,17 @@ statistiky a grafy, a na jedno tlačítko k tomu Claude doplní AI insighty.
 streamlit run src/dashboard.py
 ```
 
-Otevře se v prohlížeči (typicky http://localhost:8501). V levém panelu nahraj
-CSV nebo vyber soubor ze složky `data/`. Pro AI insighty stačí mít
-`ANTHROPIC_API_KEY` v `.env`.
+Otevře se v prohlížeči (typicky http://localhost:8501). V levém panelu vyber
+zdroj dat: nahraj CSV, vyber soubor ze složky `data/`, nebo (když je
+nakonfigurovaný `google-ads.yaml` — viz výše) zvol **Google Ads (živě)** a
+dashboard si data stáhne přímo z API, bez ručního exportu. Pro AI insighty
+stačí mít `ANTHROPIC_API_KEY` v `.env`.
+
+Nasazení do cloudu (Streamlit Community Cloud, Azure) nemá soubor
+`google-ads.yaml` na disku — přihlašovací údaje se pak berou ze Secrets
+(`GOOGLE_ADS_DEVELOPER_TOKEN`, `GOOGLE_ADS_CLIENT_ID`,
+`GOOGLE_ADS_CLIENT_SECRET`, `GOOGLE_ADS_REFRESH_TOKEN`,
+`GOOGLE_ADS_LOGIN_CUSTOMER_ID`, `GOOGLE_ADS_CUSTOMER_ID`) — viz DEPLOY.md.
 
 ## 💰 Náklady a časová náročnost
 
@@ -166,11 +174,11 @@ CSV nebo vyber soubor ze složky `data/`. Pro AI insighty stačí mít
 |---------|-------|-------------------|
 | **Hosting** | kde web běží | **0 Kč** (free tiery) až **~350 Kč/měs** (Azure App Service B1) |
 | **Claude API (Anthropic)** | AI insighty, platba za použití | **jednotky Kč** / insight → **desítky–nižší stovky Kč/měs** |
-| **Automatická data (Zapier)** | tahání z Google Ads (volitelné) | **0 Kč** (free plán) až **od ~500 Kč/měs** (placený) |
+| **Živá data z Google Ads** | napojení přímo v dashboardu (`src/gads.py`) | **0 Kč** (v ceně Google Ads API, žádná další služba není potřeba) |
 | **Vlastní doména** (volitelné) | adresa místo `*.streamlit.app` | **~200–400 Kč/rok** (.cz) |
 | **SSL / https** | zabezpečení spojení | **0 Kč** (v ceně hostingu) |
 
-> 💡 Claude API i Zapier se platí **navíc k hostingu**, nezávisle na variantě.
+> 💡 Claude API se platí **navíc k hostingu**, nezávisle na variantě.
 > Levnější model (Sonnet/Haiku) místo Opusu náklady na AI výrazně sníží.
 
 ### Kalkulace tokenů Anthropic API
@@ -210,8 +218,8 @@ Model `claude-opus-4-8` (viz `src/ai.py`) — oficiální ceny (červenec 2026):
 | Fáze | Náročnost |
 |------|-----------|
 | Vývoj dashboardu (Python/Streamlit) | **hotovo** ✅ |
+| Živé napojení na Google Ads API přímo v dashboardu | **hotovo** ✅ (zdroj dat „Google Ads (živě)“) |
 | Implementace / nasazení na web | **15 min – 1 hod** (dle varianty) |
-| Automatické tahání dat z Google Ads (Zapier → tabulka → dashboard) | **~0,5–1 den** vývoje |
 | Přestavba do React + Azure Static Web Apps (jako `panopro-advisor`) | **~3–6 člověkodnů** vývoje |
 
 ### Škálovací prahy
@@ -220,7 +228,7 @@ Model `claude-opus-4-8` (viz `src/ai.py`) — oficiální ceny (červenec 2026):
 |------|-------------|--------|--------------|
 | Streamlit Community Cloud: 7 dní bez návštěvy | Appka „usne", první návštěva čeká ~30–60 s na probuzení | Přejít na Azure App Service s Always On, nebo nechat (jen UX) | 0 Kč, nebo ~300 Kč/měs |
 | Azure App Service F1 (Free): 60 CPU minut/den | Appka po vyčerpání limitu přestane do půlnoci (UTC) reagovat | Upgrade na B1 (Basic) | ~300 Kč/měsíc |
-| Zapier Free: 100 tasků/měsíc (při automatickém tahání dat) | Automatický tok dat z Google Ads se zastaví | Upgrade na Starter ($29.99/měs) | ~700 Kč/měsíc |
+| Google Ads: Basic access, 15 000 operací/den | Nad limitem API na zbytek dne odmítá další dotazy (`RESOURCE_EXHAUSTED`) | Požádat o Standard access (vyšší limit, zdarma) | 0 Kč |
 | Vysoký objem AI insightů | Anthropic účet narazí na rate limit tieru, nebo faktura roste | Kratší souhrn dat, méně časté generování, levnější model (Sonnet/Haiku) | závisí na objemu |
 
 ### Když něco nesedí

@@ -19,6 +19,7 @@ Nasazení na web: viz DEPLOY.md.
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 import pandas as pd
 import streamlit as st
@@ -31,6 +32,7 @@ if str(ROOT) not in sys.path:
 
 from src.analyzer import DataAnalyzer  # noqa: E402
 from src.ai import ClaudeAnalyst  # noqa: E402
+from src import GoogleAdsConnector  # noqa: E402 (None, když chybí knihovna google-ads)
 
 DATA_DIR = ROOT / "data"
 
@@ -41,6 +43,53 @@ try:
         os.environ.setdefault("ANTHROPIC_API_KEY", str(st.secrets["ANTHROPIC_API_KEY"]))
 except Exception:  # lokálně bez secrets.toml je to v pořádku
     pass
+
+# Google Ads credentials pro GoogleAdsConnector (config_dict má přednost před
+# google-ads.yaml). Lokálně stačí mít soubor google-ads.yaml — tohle je jen
+# pro cloudové nasazení (Streamlit Secrets), kde žádný soubor na disku není.
+GADS_SECRET_KEYS = {
+    "developer_token": "GOOGLE_ADS_DEVELOPER_TOKEN",
+    "client_id": "GOOGLE_ADS_CLIENT_ID",
+    "client_secret": "GOOGLE_ADS_CLIENT_SECRET",
+    "refresh_token": "GOOGLE_ADS_REFRESH_TOKEN",
+    "login_customer_id": "GOOGLE_ADS_LOGIN_CUSTOMER_ID",
+}
+GADS_REQUIRED_SECRETS = (
+    "developer_token",
+    "client_id",
+    "client_secret",
+    "refresh_token",
+)
+
+
+def gads_config_from_secrets() -> Optional[dict]:
+    """Sestaví config dict pro GoogleAdsConnector ze Streamlit Secrets.
+
+    Vrátí None, když Secrets nejsou nastavené — GoogleAdsConnector pak sám
+    zkusí google-ads.yaml na disku (běžné při lokálním běhu).
+    """
+    try:
+        if not all(GADS_SECRET_KEYS[k] in st.secrets for k in GADS_REQUIRED_SECRETS):
+            return None
+        cfg = {
+            k: str(st.secrets[secret_key])
+            for k, secret_key in GADS_SECRET_KEYS.items()
+            if secret_key in st.secrets
+        }
+        cfg["use_proto_plus"] = True
+        return cfg
+    except Exception:
+        return None
+
+
+def gads_default_customer_id() -> str:
+    """Výchozí Customer ID účtu — ze Secrets (cloud), jinak z env (.env lokálně)."""
+    try:
+        if "GOOGLE_ADS_CUSTOMER_ID" in st.secrets:
+            return str(st.secrets["GOOGLE_ADS_CUSTOMER_ID"])
+    except Exception:
+        pass
+    return os.getenv("GOOGLE_ADS_CUSTOMER_ID", "")
 
 # Aliasy pro automatické rozpoznání marketingových sloupců (CZ i EN, i metrics.*)
 COL_GUESS = {
@@ -88,6 +137,70 @@ def list_data_csvs() -> list:
     if DATA_DIR.exists():
         return sorted(p.name for p in DATA_DIR.glob("*.csv"))
     return []
+
+
+# Popisky reportů v UI -> jména reportů, která zná GoogleAdsConnector/CLI src.gads
+GADS_REPORTS = {
+    "Kampaně": "campaigns",
+    "Klíčová slova": "keywords",
+    "Inzeráty": "ads",
+    "Denní trend": "trends",
+}
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def fetch_google_ads(
+    customer_id: str, days: int, report: str, config_dict: Optional[dict]
+) -> pd.DataFrame:
+    """Stáhne report z Google Ads API (cache 10 min, ať běžné klikání po
+    dashboardu — např. přemapování sloupců — zbytečně nezatěžuje API kvótu)."""
+    connector = GoogleAdsConnector(customer_id=customer_id, config_dict=config_dict)
+    fetchers = {
+        "campaigns": lambda: connector.fetch_campaign_performance(days=days),
+        "keywords": lambda: connector.fetch_keyword_performance(days=days),
+        "ads": lambda: connector.fetch_ad_performance(days=days),
+        "trends": lambda: connector.fetch_daily_trends(days=days),
+    }
+    return fetchers[report]()
+
+
+def google_ads_sidebar():
+    """UI pro živé načtení dat z Google Ads. Vrátí (df, source_name), nebo (None, None)."""
+    st.sidebar.caption("Data se stáhnou přímo z Google Ads API (žádný soubor).")
+    customer_id = st.sidebar.text_input("Customer ID účtu", value=gads_default_customer_id())
+    days = st.sidebar.number_input("Za posledních N dní", min_value=1, max_value=365, value=30)
+    report_label = st.sidebar.selectbox("Typ reportu", list(GADS_REPORTS.keys()))
+    report = GADS_REPORTS[report_label]
+
+    if st.sidebar.button("📥 Načíst data z Google Ads", type="primary", use_container_width=True):
+        if not customer_id.strip():
+            st.sidebar.error("Zadej Customer ID účtu.")
+        else:
+            with st.spinner("Stahuji data z Google Ads…"):
+                try:
+                    df = fetch_google_ads(
+                        customer_id.strip(), int(days), report, gads_config_from_secrets()
+                    )
+                except Exception as exc:
+                    st.session_state.pop("gads_df", None)
+                    msg = str(exc)
+                    if "DEVELOPER_TOKEN_NOT_APPROVED" in msg:
+                        st.sidebar.error(
+                            "Developer token zatím nemá schválený přístup k reálným "
+                            "účtům (jen testovací). Čeká se na schválení Google "
+                            "(Basic access) — zkus to znovu, až přijde potvrzení."
+                        )
+                    else:
+                        st.sidebar.error(f"Načtení z Google Ads selhalo: {msg}")
+                else:
+                    st.session_state["gads_df"] = df
+                    st.session_state["gads_source_name"] = (
+                        f"google_ads_{report}_{customer_id.strip()}"
+                    )
+
+    if "gads_df" in st.session_state:
+        return st.session_state["gads_df"], st.session_state["gads_source_name"]
+    return None, None
 
 
 def guess_col(df: pd.DataFrame, key: str):
@@ -222,25 +335,37 @@ def main():
 
     # --- Postranní panel: zdroj dat ---
     st.sidebar.header("Zdroj dat")
-    uploaded = st.sidebar.file_uploader("Nahraj CSV", type=["csv"])
-
-    chosen = None
-    existing = list_data_csvs()
-    if existing:
-        pick = st.sidebar.selectbox("…nebo vyber ze složky data/", ["—"] + existing)
-        chosen = None if pick == "—" else pick
+    source_options = ["Nahraj CSV", "Ze složky data/"]
+    if GoogleAdsConnector is not None:
+        source_options.append("Google Ads (živě)")
+    source_mode = st.sidebar.radio("Odkud načíst data", source_options, index=0)
 
     df = None
     source_name = "data"
-    if uploaded is not None:
-        df = load_csv(uploaded)
-        source_name = uploaded.name
-    elif chosen:
-        df = load_csv(DATA_DIR / chosen)
-        source_name = chosen
+
+    if source_mode == "Nahraj CSV":
+        uploaded = st.sidebar.file_uploader("Nahraj CSV", type=["csv"])
+        if uploaded is not None:
+            df = load_csv(uploaded)
+            source_name = uploaded.name
+
+    elif source_mode == "Ze složky data/":
+        existing = list_data_csvs()
+        if existing:
+            pick = st.sidebar.selectbox("Vyber soubor", ["—"] + existing)
+            if pick != "—":
+                df = load_csv(DATA_DIR / pick)
+                source_name = pick
+        else:
+            st.sidebar.caption("Složka `data/` je prázdná.")
+
+    else:  # "Google Ads (živě)"
+        df, name = google_ads_sidebar()
+        if df is not None:
+            source_name = name
 
     if df is None:
-        st.info("⬅️ Nahraj CSV, nebo vyber soubor ze složky `data/` v levém panelu.")
+        st.info("⬅️ Vyber zdroj dat v levém panelu.")
         st.stop()
 
     analyzer = DataAnalyzer.from_dataframe(df, name=source_name)

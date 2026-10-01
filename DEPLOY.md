@@ -20,6 +20,15 @@ Dashboard (`src/dashboard.py`, Streamlit) lze **zdarma** nasadit na **Streamlit 
    ```toml
    ANTHROPIC_API_KEY = "sk-ant-..."
    APP_PASSWORD = "zvol-si-heslo"
+
+   # Volitelné - jen když chceš i zdroj dat "Google Ads (živě)".
+   # Stejné hodnoty jako v google-ads.yaml (viz README.md).
+   GOOGLE_ADS_DEVELOPER_TOKEN = "..."
+   GOOGLE_ADS_CLIENT_ID = "...apps.googleusercontent.com"
+   GOOGLE_ADS_CLIENT_SECRET = "GOCSPX-..."
+   GOOGLE_ADS_REFRESH_TOKEN = "1//..."
+   GOOGLE_ADS_LOGIN_CUSTOMER_ID = "1234567890"
+   GOOGLE_ADS_CUSTOMER_ID = "1234567890"
    ```
 5. Klikni **Deploy**. Za chvilku dostaneš veřejnou URL (např. `https://<název>.streamlit.app`).
 
@@ -48,11 +57,11 @@ Po každém pushi do zvolené větve se aplikace **automaticky znovu nasadí**.
 |---------|-------|-------------------|
 | **Hosting** | kde web běží | **0 Kč** (free tiery) až **~350 Kč/měs** (Azure App Service B1) |
 | **Claude API (Anthropic)** | AI insighty, platba za použití | **jednotky Kč** / insight → **desítky–nižší stovky Kč/měs** |
-| **Automatická data (Zapier)** | tahání z Google Ads (volitelné) | **0 Kč** (free plán) až **od ~500 Kč/měs** (placený) |
+| **Živá data z Google Ads** | napojení přímo v dashboardu (`src/gads.py`) | **0 Kč** (v ceně Google Ads API, žádná další služba není potřeba) |
 | **Vlastní doména** (volitelné) | adresa místo `*.streamlit.app` | **~200–400 Kč/rok** (.cz) |
 | **SSL / https** | zabezpečení spojení | **0 Kč** (v ceně hostingu) |
 
-> 💡 Claude API i Zapier se platí **navíc k hostingu**, nezávisle na variantě.
+> 💡 Claude API se platí **navíc k hostingu**, nezávisle na variantě.
 > Levnější model (Sonnet/Haiku) místo Opusu náklady na AI výrazně sníží.
 
 ### Kalkulace tokenů Anthropic API
@@ -92,8 +101,8 @@ Model `claude-opus-4-8` (viz `src/ai.py`) — oficiální ceny (červenec 2026):
 | Fáze | Náročnost |
 |------|-----------|
 | Vývoj dashboardu (Python/Streamlit) | **hotovo** ✅ |
+| Živé napojení na Google Ads API přímo v dashboardu | **hotovo** ✅ (zdroj dat „Google Ads (živě)“) |
 | Implementace / nasazení na web | **15 min – 1 hod** (dle varianty) |
-| Automatické tahání dat z Google Ads (Zapier → tabulka → dashboard) | **~0,5–1 den** vývoje |
 | Přestavba do React + Azure Static Web Apps (jako `panopro-advisor`) | **~3–6 člověkodnů** vývoje |
 
 ### Škálovací prahy
