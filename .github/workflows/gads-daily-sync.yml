@@ -1,0 +1,44 @@
+name: Google Ads – denní stažení dat
+
+on:
+  schedule:
+    - cron: '17 5 * * *' # ~07:17 CEST / 06:17 CET, denně
+  workflow_dispatch: {} # pro ruční spuštění (záložka Actions → tenhle workflow → Run workflow)
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_ADS_DEVELOPER_TOKEN: ${{ secrets.GOOGLE_ADS_DEVELOPER_TOKEN }}
+      GOOGLE_ADS_CLIENT_ID: ${{ secrets.GOOGLE_ADS_CLIENT_ID }}
+      GOOGLE_ADS_CLIENT_SECRET: ${{ secrets.GOOGLE_ADS_CLIENT_SECRET }}
+      GOOGLE_ADS_REFRESH_TOKEN: ${{ secrets.GOOGLE_ADS_REFRESH_TOKEN }}
+      GOOGLE_ADS_LOGIN_CUSTOMER_ID: ${{ secrets.GOOGLE_ADS_LOGIN_CUSTOMER_ID }}
+      GOOGLE_ADS_CUSTOMER_ID: ${{ secrets.GOOGLE_ADS_CUSTOMER_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Nainstalovat závislosti
+        run: pip install -r requirements.txt
+
+      - name: Stáhnout reporty z Google Ads (posledních 30 dní)
+        run: |
+          python -m src.gads --report campaigns --days 30 --csv data/panopro_auto_campaigns.csv
+          python -m src.gads --report keywords  --days 30 --csv data/panopro_auto_keywords.csv
+          python -m src.gads --report ads       --days 30 --csv data/panopro_auto_ads.csv
+          python -m src.gads --report trends    --days 30 --csv data/panopro_auto_trends.csv
+
+      - name: Commitnout aktualizovaná data (jen když se něco změnilo)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/panopro_auto_campaigns.csv data/panopro_auto_keywords.csv data/panopro_auto_ads.csv data/panopro_auto_trends.csv
+          git diff --staged --quiet && echo "Žádná změna dat, commit se přeskakuje." || git commit -m "data: denní automatický sync Google Ads (panopro)"
+          git push
