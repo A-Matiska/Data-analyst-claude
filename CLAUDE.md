@@ -11,6 +11,7 @@
 - AI insighty: `python -m src.ai data/soubor.csv`
 - Google Ads: `python -m src.gads --check` (test připojení) | `python -m src.gads --report keywords --days 30` | `--customer-id … --csv data/out.csv`
 - OAuth token: `python -m src.generate_refresh_token --update-yaml`
+- GA4 (poptávky/tržby napříč kanály): `python -m src.ga4 --list` | `--web panopro --event generate_lead` | `--web karavan --trzby` (aliasy property_* v google-apis.yaml)
 - Denní auto-sync Google Ads: `.github/workflows/gads-daily-sync.yml` (cron, vyžaduje GOOGLE_ADS_* jako GitHub Secrets) — ukládá do `data/panopro_auto_*.csv`, dashboard je najde přes "Ze složky data/"
 - Deploy: push do GitHub (A-Matiska/Data-analyst-claude) → Streamlit Community Cloud auto-redeploy; alternativně Azure App Service (DEPLOY_AZURE.md)
 
@@ -18,6 +19,7 @@
 - src/analyzer.py   jádro analýzy (pandas, statistiky, anomálie)
 - src/gads.py       Google Ads konektor (GAQL: kampaně/keywords/ads/trendy)
 - src/ai.py         Claude insighty (Anthropic API)
+- src/ga4.py        GA4 konektor (události a tržby webu podle kanálů)
 - src/dashboard.py  Streamlit UI (upload CSV, grafy, AI insighty)
 - data/             vstupní CSV | reports/ generované reporty
 - DEPLOY.md / DEPLOY_AZURE.md  návody na nasazení
