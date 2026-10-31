@@ -19,16 +19,34 @@ jobs:
       GOOGLE_ADS_LOGIN_CUSTOMER_ID: ${{ secrets.GOOGLE_ADS_LOGIN_CUSTOMER_ID }}
       GOOGLE_ADS_CUSTOMER_ID: ${{ secrets.GOOGLE_ADS_CUSTOMER_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Zkontrolovat GitHub Secrets
+        id: secrets
+        run: |
+          missing=""
+          for v in GOOGLE_ADS_DEVELOPER_TOKEN GOOGLE_ADS_CLIENT_ID GOOGLE_ADS_CLIENT_SECRET GOOGLE_ADS_REFRESH_TOKEN GOOGLE_ADS_LOGIN_CUSTOMER_ID GOOGLE_ADS_CUSTOMER_ID; do
+            [ -z "${!v}" ] && missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::warning::Sync přeskočen, chybí GitHub Secrets:$missing (Settings → Secrets and variables → Actions)"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
 
-      - uses: actions/setup-python@v5
+      - if: steps.secrets.outputs.ready == 'true'
+        uses: actions/checkout@v4
+
+      - if: steps.secrets.outputs.ready == 'true'
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
       - name: Nainstalovat závislosti
+        if: steps.secrets.outputs.ready == 'true'
         run: pip install -r requirements.txt
 
       - name: Stáhnout reporty z Google Ads (posledních 30 dní)
+        if: steps.secrets.outputs.ready == 'true'
         run: |
           python -m src.gads --report campaigns --days 30 --csv data/panopro_auto_campaigns.csv
           python -m src.gads --report keywords  --days 30 --csv data/panopro_auto_keywords.csv
@@ -36,6 +54,7 @@ jobs:
           python -m src.gads --report trends    --days 30 --csv data/panopro_auto_trends.csv
 
       - name: Commitnout aktualizovaná data (jen když se něco změnilo)
+        if: steps.secrets.outputs.ready == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
